@@ -1,0 +1,23 @@
+<h1>My Favorite Translations</h1>
+
+{% extends 'index.html' %}
+
+{% block navigation %}
+	{{ super() }}
+{% endblock %}
+
+{% block main_content %}
+
+<ul>
+{% for f in favorites %}
+	<li><a href="http://localhost:5000/favorite/{{ f.id }}">{{ f.name }}</a></li>
+{% endfor %}
+</ul>
+
+<div>
+	{% for message in get_flashed_messages() %}
+	{{ message }}
+	{% endfor %}
+</div>
+
+{% endblock %}

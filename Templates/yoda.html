@@ -1,0 +1,21 @@
+{% extends 'index.html' %}
+
+{% block navigation %}
+ {{ super() }}
+{% endblock %}
+
+{% block main_content %}
+
+Yoda Translation: {{ translated_plot }}
+<form method='POST' action='/all_movies'>
+	{{ form.hidden_tag() }}
+	{{ form.submit() }}
+</form>
+
+<div>
+{% for messages in get_flashed_messages() %}
+{{ message }}
+{% endfor %}
+</div>
+
+{% endblock %}

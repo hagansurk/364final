@@ -1,0 +1,26 @@
+{% extends 'index.html' %}
+
+{% block navigation %}
+	{{ super() }}
+{% endblock %}
+
+{% block main_content %}
+
+
+{{ title }} - Plot: {{ plot }} 
+		
+<form method="POST" action="/translate_yodish/{{ mov_id }}">
+	{{ form.hidden_tag() }}
+	{{ form.submit() }}
+</form>
+<form method='POST' action='/upload/{{ mov_id }}'>
+	{{ form1.hidden_tag() }}
+	{{ form1.submit() }}
+</form>
+<div>
+	{% for message in get_flashed_messages() %}
+	{{ message }}
+	{% endfor %}
+</div>
+
+{% endblock %}

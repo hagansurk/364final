@@ -1,0 +1,16 @@
+{% extends 'index.html' %}
+
+{% block navigation %}
+	{{ super() }}
+{% endblock %}
+
+
+{% block main_content %}
+
+<form method="POST">
+	{{ form.hidden_tag() }}
+	{{ form.file.label }} {{ form.file() }}
+	{{ form.submit.label }}{{ form.submit() }}
+</form>
+
+{% endblock %}

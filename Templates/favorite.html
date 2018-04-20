@@ -1,0 +1,32 @@
+<h1>Favorite List: {{ favorites.name }}</h1>
+{% extends 'index.html' %}
+
+{% block navigation %}
+{{ super() }}
+{% endblock %}
+
+{% block main_content %}
+
+{% for f in favs %}
+	<strong>{{ title }}</strong>
+	<br>
+	{{ f.yoda_trans }}
+	
+	<br><br>
+{% endfor %}
+<form method="" action="/delete/{{ favorites.id }}">
+	{{ form.hidden_tag() }}
+	{{ form.submit() }}
+</form>
+<form method='POST' action="/update/{{ favorites.id }}">
+	{{ form1.hidden_tag() }}
+	{{ form1.submit() }}
+</form>
+
+<div>
+	{% for message in get_flashed_messages() %}
+	{{ message }}
+	{% endfor %}
+</div>
+
+{% endblock %}

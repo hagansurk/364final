@@ -1,0 +1,22 @@
+{% extends 'index.html' %}
+
+{% block navigation %}
+	{{ super() }}
+{% endblock %}
+
+
+{% block main_content %}
+
+<form actoin="/favorites" method="POST">
+	{{ form.hidden_tag() }}
+	{{ form.new_trans.label }} {{ form.new_trans() }}
+	{{ form.submit.label }}{{ form.submit() }}
+</form>
+
+<div>
+	{% for message in get_flashed_messages() %}
+	{{ message }}
+	{% endfor %}
+</div>
+
+{% endblock %}

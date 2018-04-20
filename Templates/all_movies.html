@@ -1,0 +1,29 @@
+<h1> All Translated Movie Plots </h1>
+{% extends 'index.html' %}
+{% block navigation %}
+	{{ super() }}
+{% endblock %}
+
+{% block main_content %}
+<ul>
+{% for movie in all_movies %}
+  	<h4>{{ movie[0] }}</h4>
+  	</br>
+  	<h5>{{ movie[1] }}</h5>
+  	
+	<br>
+{% endfor %}
+</ul>
+
+{% if not all_movies %}
+There are no saved translated movies to show.
+{% endif %}
+
+<div>
+	{% for message in get_flashed_messages() %}
+	{{ message }}
+	{% endfor %}
+</div>
+
+<a href="{{ url_for('index')}}">Return to Search for a new movie!</a>
+{% endblock %}
