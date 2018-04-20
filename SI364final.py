@@ -48,7 +48,7 @@ class User(UserMixin, db.Model):
 	password_hash = db.Column(db.String(128))
 	mov = db.relationship('Movie',backref='User')
 	yod = db.relationship('Yoda', backref='User')
-	col = db.relationship('PersonalYodaCollection',backref='User')
+	col = db.relationship('PersonalYodaFavorites',backref='User')
 
 	@property
 	def password(self):
@@ -70,7 +70,7 @@ class Movie(db.Model):
 	__tablename__ = 'movie'
 	id = db.Column(db.Integer, primary_key=True)
 	title = db.Column(db.String(64))
-	plot = db.Column(db.String(500))
+	plot = db.Column(db.String(10000))
 	user_id = db.Column(db.Integer,db.ForeignKey('users.id'))
 	yoda = db.relationship('Yoda',backref='Movie')
 	poster = db.relationship('MoviePoster',backref='Movie')
@@ -83,7 +83,7 @@ class Yoda(db.Model):
 	yoda_trans = db.Column(db.String(500))
 	user_id = db.Column(db.Integer,db.ForeignKey('users.id'))
 	movie_id = db.Column(db.Integer,db.ForeignKey('movie.id'))
-	rating = db.Column(db.Integer)
+	#rating = db.Column(db.Integer)
 
 class PersonalYodaFavorites(db.Model):
 	__tablename__ = 'personalyodafavorites'
@@ -102,12 +102,14 @@ class MoviePoster(db.Model):
 ##### Helper Functions ######
 
 def get_movie_data(search_string):
-	movie_list = []
 	base_url = "http://www.omdbapi.com/?"
-	parameters = {'apikey':api_key,'t':search_string}
+	parameters = {'apikey':api_key,'t':search_string, 'plot':'full'}
 	r = requests.get(base_url,parameters)
 	rt = json.loads(r.text)
-	pass
+	plot = rt['Plot']
+	title = rt['Title']
+	movie_tupl = (title, plot)
+	return movie_tupl
 
 def get_yoda_translation(movie_plot):
 	yoda_list = []
@@ -115,24 +117,29 @@ def get_yoda_translation(movie_plot):
 	parameters = {'text':movie_plot}
 	r = requests.get(base_url,parameters)
 	rt = json.loads(r.text)
-	pass
+	translation = rt['contents']['translated']
+	return(translation)
 
-def get_or_create_movie(title, plot):
+def get_or_create_movie(title, current_user):
 	mov = Movie.query.filter_by(title=title).first()
 	if mov:
 		return mov
 	else:
-		mov = Mov(title=title, plot=plot)
+		movie_tupl = get_movie_data(title)
+		title1 = movie_tupl[0]
+		plot = movie_tupl[1]
+		mov = Movie(title=title1, plot=plot, user_id=current_user.id)
 		db.session.add(mov)
 		db.session.commit()
 		return mov
 
-def get_or_create_yoda(yoda_trans):
-	yod = Yoda.query.filter_by(yoda_trans=yoda_trans).first()
+def get_or_create_yoda(plot, current_user, movie_id):
+	yod = Yoda.query.filter_by(movie_id=movie_id).first()
 	if yod:
 		return yod
 	else:
-		yod = Yoda(yoda_trans=yoda_trans)
+		yoda_trans = get_yoda_translation(plot) 
+		yod = Yoda(yoda_trans=yoda_trans, user_id =current_user.id,movie_id=movie_id)
 		db.session.add(yod)
 		db.session.commit()
 		return yod
@@ -149,6 +156,9 @@ def get_or_create_favorite(name,current_user,yoda_list=[]): #from HW4
 		db.session.commit()
 		return col
 
+def get_trans(id):
+	y = Yoda.query.filter_by(id=id).first()
+	return y
 ##### Form Classes ####
 def Nospace(form, field):
 	match = re.match('^[A-Z|a-z][A-Za-z0-9_.\!\?\$\@\&]*$', field.data[0])
@@ -156,12 +166,12 @@ def Nospace(form, field):
 		pass
 	else:
 		raise ValidationError('Username must only contain letters, numbers, and special characters (!, ?, _, $, &, .). No spaces allowed')
-		
+
 class RegistrationForm(FlaskForm): 
 	#from HW4
 	email = StringField('Enter Email:', validators=[Required(),Length(1,64),Email()]) 
 	username = StringField('Enter Username:', validators=[Required(),Length(1,64),Nospace])
-	password = PasswordField('Enter Password:', vaildators=[Required(),EqualTo('passwordComf',message="Passwords must be the same.")])
+	password = PasswordField('Enter Password:', validators=[Required(),EqualTo('passwordComf',message="Passwords must be the same.")])
 	passwordComf = PasswordField('Confirm Password:',validators=[Required()])
 	submit = SubmitField('Register User')
 
@@ -187,22 +197,28 @@ class MovieSearchForm(FlaskForm):
 
 class FavoriteForm(FlaskForm):
 	#create form to make a collection of yoda translations
-	col = StringField('Favorite list name',validators=[Required()])
+	name = StringField('Favorite list name',validators=[Required()])
 	trans_picks = SelectMultipleField('Yoda translations to include')
 	submit = SubmitField('Create Favorites List')
 
 	def validate_list_name(self, field):
-		if PersonalYodaFavorites.query.filter_by(name=col).first():
+		if PersonalYodaFavorites.query.filter_by(name=name).first():
 			raise ValidationError('Favorite List name already exists. Please enter another.')
 
-class UpdateForm(FlaskForm):
+class TranslateForm(FlaskForm):
 	#from HW5 update field 
-	new_rate = StringField('What is the new rating of this translation?',validators=[Required()])
+	submit = SubmitField('Translated')
+
+class UpdateButton(FlaskForm):
 	submit = SubmitField('Update')
 
-class ButtonUpdate(FlaskForm):
-	#from HW5
+class UpdateForm(FlaskForm):
+	new_trans = SelectMultipleField('Which translation do you want to add to an exisiting list?',validators=[Required()])
 	submit = SubmitField('Update')
+
+class ButtonTranslate(FlaskForm):
+	#from HW5
+	submit = SubmitField('Translate')
 
 class DeleteForm(FlaskForm):
 	#from HW5
@@ -210,7 +226,12 @@ class DeleteForm(FlaskForm):
 
 class UploadForm(FlaskForm):
 	#for the movie poster if they wish to upload it
-	file = FileField()
+	file = FileField('Put movie image here',validators=[Required()])
+	submit = SubmitField('Submit')
+
+class UploadFormButton(FlaskForm):
+	submit = SubmitField('Upload Movie Poster')
+
 
 
 
@@ -234,10 +255,10 @@ def login():
 	if form.validate_on_submit():
 		user = User.query.filter_by(email=form.email.data).first()
 		if user is not None and user.verify_password(form.password.data):
-			login_user(user, form.remember_me.data)
+			login_user(user, form.remember.data)
 			return redirect(request.args.get('next') or url_for('index'))
 		flash('Invalid username or password. Again please try.')
-	return render_template('login.hmtl',form=form)
+	return render_template('login.html',form=form)
 	#create template
 
 @app.route('/logout')
@@ -270,8 +291,13 @@ def index():
 	#will take the form, validate it, and call get_or_create_movie
 	#redirect to results page to see the yodaish translate
 	#render template for index.html
-
-	pass
+	form = MovieSearchForm()
+	if form.validate_on_submit():
+		get_or_create_movie(title=form.movie.data,current_user=current_user)
+		flash("Movie Successfully Found!")
+		return redirect(url_for('movie_results'))
+	return render_template('index.html',form=form)
+	
 
 @app.route('/movie_found')
 def movie_results():
@@ -280,16 +306,41 @@ def movie_results():
 	#another button will appear here for the delete button
 	#render template for that button and results
 	#redirect url to page with yodish translation
-	pass
+	movies = Movie.query.all()
+	#add poster element
+	return render_template('movie_results.html',movie=movies)
 
-@app.route('/all_movies')
+@app.route('/movie_view/<movid>',methods=['POST','GET'])
+def movie_view(movid):
+	form = ButtonTranslate()
+	form1 = UploadFormButton()
+	mov1 = Movie.query.filter_by(id=movid).first()
+	title = mov1.title
+	plot = mov1.plot
+	mov_id = mov1.id
+	return render_template('movie_view.html',title=title,plot=plot,mov_id=mov_id,form=form,form1=form1)
+
+@app.route('/all_movies',methods=["GET","POST"])
 def see_all_movies():
 	# queries the Yoda table 
 	# update button form to a button to update the rating of the movie
 	# takes movie id from Yoda Table and queries movie title 
 	# renders template to displat movie names with yodish plots
 	# list of movies tuples will be passed into the template
-	pass
+	yoda_list = []
+	movie = Movie.query.all()
+
+	for elem in movie:
+		mov_id = elem.id
+		yoda = Yoda.query.filter_by(movie_id=mov_id).first()
+		if yoda:
+			yoda_list.append((elem.title,yoda.yoda_trans))
+		else:
+			yoda_list.append((elem.title,elem.plot))
+			flash('Not all plots Translated to Yoda. Please Translate this Statement')
+		#return redirect(url_for('delete',movie=elem.title))
+	return render_template('all_movies.html',all_movies=yoda_list)
+
 
 @app.route('/create_favorites',methods=['GET','POST'])
 @login_required
@@ -299,50 +350,111 @@ def create_favorites():
 	#use the input data to pass into get_or_create_favorites to save the favorite collection
 	#redirect the url to display collections
 	#render template for the create favorites.html
-	pass
+	form = FavoriteForm()
+	yod = Yoda.query.all()
+	options = [(y.id,y.yoda_trans) for y in yod]
+	form.trans_picks.choices = options
+	if request.method == 'POST':
+		name = form.name.data
+		picks = form.trans_picks.data
+		trans_obj = [get_trans(int(id)) for id in picks]
+		get_or_create_favorite(current_user=current_user,name=name,yoda_list=trans_obj)
+		return redirect(url_for('favorites'))
+	return render_template('make_favorites.html',form=form)
 
-@app.route('/update_yodish/<translation>',methods=['GET','POST'])
-def update(translation):
-	# set up update rating form
+@app.route('/translate_yodish/<mov_id>',methods=['GET','POST'])
+def translate(mov_id):
+	# set up translate form
 	# get new rating
 	# requery yoda table
 	# save new rating to the yoda table instance
 	# save to new table
 	# redirect to see_all_movies
 	# render template for the update item html file
-	pass
+	movie = Movie.query.filter_by(id=mov_id).first()
+	plot = movie.plot
+	form = TranslateForm()
+	trans_obj = get_or_create_yoda(plot=plot,current_user=current_user,movie_id=mov_id)
+	trans_text=trans_obj.yoda_trans
+	flash("Created New Yoda Translated Plot")
+	
+	return render_template('yoda.html',translated_plot=trans_text,form=form)
+	
 
-@app.route('/delete/<movie>',methods=['GET','POST'])
-def delete(movie):
+@app.route('/delete/<collections>',methods=['GET','POST'])
+def delete(collections):
 	# query movie table instance to dele
 	# delete from the table
 	# redirect url for see_all_movies
-	pass
+	# movie = Movie.query.filter_by(title=movie).first()
+	# movie_id = movie.id
+	deleter = PersonalYodaFavorites.query.filter_by(id=collections).first()
+	print(deleter)
+	db.session.delete(deleter)
+	db.session.commit()
+	flash('Deleted Favorite List '+deleter.name)
+	return redirect(url_for('see_all_movies'))
 
+
+@app.route('/update/<collection>',methods=['GET','POST'])
+def update(collection):
+	#add items to collections
+	form = UpdateForm()
+	updater = PersonalYodaFavorites.query.filter_by(id=collection).first()
+	yod = Yoda.query.all()
+	options = [(y.id,y.yoda_trans) for y in yod]
+	form.new_trans.choices = options
+	if request.method == 'POST':
+		picks = form.new_trans.data
+		trans_obj = [get_trans(int(id)) for id in picks]
+		for elem in trans_obj:
+			updater.coll.append(elem)
+			return redirect(url_for('favorites'))
+		
+		flash('New Translated Plot Addedd Successfully.  Please Click to any screen you want')
+		db.session.add(updater)
+		db.session.commit()
+	return render_template('update.html',form=form)
 
 @app.route('/favorites',methods=['GET','POST'])
 @login_required
 def favorites():
 	# query the favorites table to show all the collections made by this user using current_user
 	# render template for the favorites html file
-	pass
 
-@app.route('/upload',methods=['GET','POST'])
-def upload():
+	user_favs = PersonalYodaFavorites.query.filter_by(user_id=current_user.id).all()
+	return render_template('favorites.html',favorites=user_favs)
+
+@app.route('/favorite/<id>',methods=['GET','POST'])
+def favorite(id):
+	diction = {}
+	form = DeleteForm()
+	form1 = UpdateButton()
+	fav_id = int(id)
+	fav = PersonalYodaFavorites.query.filter_by(id=fav_id).first()
+	favs = fav.coll.all()
+	return render_template('favorite.html',favorites=fav, favs=favs, form=form,form1=form1)
+
+@app.route('/upload/mov_id',methods=['GET','POST'])
+def upload(mov_id):
 	# form is the upload form
 	# get the file name out of the form
 	# save the file name to a static file 
 	# upload file route the database for movie posters
 	# redirect url to see_all_movies
 	# render form template here
-	pass
-
-@app.route('/ajax')
-def search():
-	# using ajax to search for all movies
-	# not sure if will actually be used or not
-	pass
-
+	form = UploadForm()
+	
+	image = form.file.data
+	poster = MoviePoster.query.filter_by(poster=image).first()
+	if poster:
+		pass
+	else:
+		poster = MoviePoster(movie_id=mov_id,poster=image)
+		db.session.add(poster)
+		db.session.commit()
+		#return redirect(url_for('movie_view'))
+	return render_template('poster.html',form=form)
 
 
 if __name__ == '__main__':
