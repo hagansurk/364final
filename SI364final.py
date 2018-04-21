@@ -5,6 +5,7 @@ from flask import Flask, render_template, session, redirect, request, url_for, f
 from flask_script import Manager, Shell
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, FileField, PasswordField, BooleanField, SelectMultipleField, ValidationError
+from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wtforms.validators import Required, Length, Email, Regexp, EqualTo
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate, MigrateCommand
@@ -12,6 +13,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, login_required, logout_user, login_user, UserMixin, current_user
 import os
 import re
+from flask.ext.uploads import UploadSet, configure_uploads, IMAGES, patch_request_class #from stackoverflow by chirag maliwal
+
 ####### Applicaiton configs #######
 app = Flask(__name__)
 app.debug = True
@@ -21,6 +24,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or "postg
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATION'] = False
 app.config['HEROKU_ON'] = os.environ.get('HEROKU')
+app.config['UPLOADED_PHOTOS_DEST'] = os.getcwd()
+
+photos = UploadSet('photos', IMAGES)
+configure_uploads(app, photos)
+patch_request_class(app) 
 ####### app set up #######
 manager = Manager(app)
 db = SQLAlchemy(app)
@@ -226,7 +234,7 @@ class DeleteForm(FlaskForm):
 
 class UploadForm(FlaskForm):
 	#for the movie poster if they wish to upload it
-	file = FileField('Put movie image here',validators=[Required()])
+	photo = FileField(validators=[FileAllowed(photos, 'Image only!'), FileRequired('File was empty!')])
 	submit = SubmitField('Submit')
 
 class UploadFormButton(FlaskForm):
@@ -307,8 +315,14 @@ def movie_results():
 	#render template for that button and results
 	#redirect url to page with yodish translation
 	movies = Movie.query.all()
-	#add poster element
-	return render_template('movie_results.html',movie=movies)
+	for elem in movies:
+		poster = MoviePoster.query.filter_by(movie_id=elem.id).first()
+		if poster:
+			filename=poster.poster
+			file_url = photos.url(filename)
+		else:
+			file_url=None
+	return render_template('movie_results.html',movie=movies,file_url=file_url)
 
 @app.route('/movie_view/<movid>',methods=['POST','GET'])
 def movie_view(movid):
@@ -318,7 +332,14 @@ def movie_view(movid):
 	title = mov1.title
 	plot = mov1.plot
 	mov_id = mov1.id
-	return render_template('movie_view.html',title=title,plot=plot,mov_id=mov_id,form=form,form1=form1)
+	poster = MoviePoster.query.filter_by(movie_id=mov_id).first()
+	if poster:
+		filename=poster.poster
+		file_url = photos.url(filename)
+	else:
+		file_url=None
+	
+	return render_template('movie_view.html',title=title,plot=plot,mov_id=mov_id,form=form,form1=form1, file_url=file_url)
 
 @app.route('/all_movies',methods=["GET","POST"])
 def see_all_movies():
@@ -435,27 +456,21 @@ def favorite(id):
 	favs = fav.coll.all()
 	return render_template('favorite.html',favorites=fav, favs=favs, form=form,form1=form1)
 
-@app.route('/upload/mov_id',methods=['GET','POST'])
-def upload(mov_id):
-	# form is the upload form
-	# get the file name out of the form
-	# save the file name to a static file 
-	# upload file route the database for movie posters
-	# redirect url to see_all_movies
-	# render form template here
-	form = UploadForm()
-	
-	image = form.file.data
-	poster = MoviePoster.query.filter_by(poster=image).first()
-	if poster:
-		pass
-	else:
-		poster = MoviePoster(movie_id=mov_id,poster=image)
-		db.session.add(poster)
-		db.session.commit()
-		#return redirect(url_for('movie_view'))
-	return render_template('poster.html',form=form)
 
+@app.route('/upload/<mov_id>', methods=['GET', 'POST']) #github user greyli
+def upload_file(mov_id):
+    form = UploadForm()
+    if form.validate_on_submit():
+        filename = photos.save(form.photo.data)
+        file_url = photos.url(filename)
+        movie = Movie.query.filter_by(id=mov_id).first()
+        post = MoviePoster(movie_id=movie.id,poster=filename)
+        db.session.add(post)
+        db.session.commit()
+        return redirect(url_for('movie_results'))
+    else:
+        file_url = None
+    return render_template('poster.html', form=form, file_url=file_url)
 
 if __name__ == '__main__':
 	db.create_all()
