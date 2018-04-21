@@ -467,6 +467,7 @@ def upload_file(mov_id):
         post = MoviePoster(movie_id=movie.id,poster=filename)
         db.session.add(post)
         db.session.commit()
+        flash('Successfully Added Photo, Clink on Movies link again to see it.')
         return redirect(url_for('movie_results'))
     else:
         file_url = None

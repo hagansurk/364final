@@ -10,6 +10,11 @@
 {% for item in movie %}
     <li>
 		<a href="{{ url_for('movie_view',movid=item.id) }}">{{ item.title }}</a>
+		{% if file_url %}
+		<br>
+		<img src="{{ file_url }}">
+		{% endif %}
+
 		<br>
 	</li>
 {% endfor %}

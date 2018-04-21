@@ -8,12 +8,15 @@
 
 
 {{ title }} - Plot: {{ plot }} 
-		
+{% if file_url %}
+	<br>
+	<img src="{{ file_url }}">
+{% endif %}
 <form method="POST" action="/translate_yodish/{{ mov_id }}">
 	{{ form.hidden_tag() }}
 	{{ form.submit() }}
 </form>
-<form method='POST' action='/upload/{{ mov_id }}'>
+<form method='POST' action="http://localhost:5000/upload/{{ mov_id }}">
 	{{ form1.hidden_tag() }}
 	{{ form1.submit() }}
 </form>

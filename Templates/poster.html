@@ -7,10 +7,24 @@
 
 {% block main_content %}
 
-<form method="POST">
+<form method="POST" enctype="multipart/form-data">
 	{{ form.hidden_tag() }}
-	{{ form.file.label }} {{ form.file() }}
+	{{ form.photo }} 
+	{% for error in form.photo.errors %}
+		<span style="color: red;">{{ error }}</span>
+	{% endfor %}
 	{{ form.submit.label }}{{ form.submit() }}
 </form>
+
+{% if file_url %}
+<br>
+<img src="{{ file_url }}">
+{% endif %}
+
+<div>
+	{% for message in get_flashed_messages() %}
+	{{ message }}
+	{% endfor %}
+</div>
 
 {% endblock %}
