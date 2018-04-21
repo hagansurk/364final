@@ -466,7 +466,7 @@ def upload_file(mov_id):
         movie = Movie.query.filter_by(id=mov_id).first()
         poster = MoviePoster.query.filter_by(movie_id=movie.id).first()
         if poster:
-        	continue
+        	pass
         else:
         	post = MoviePoster(movie_id=movie.id,poster=filename)
         	db.session.add(post)
