@@ -12,7 +12,7 @@ I did install one other module with pip which was Flask-Uploads.  This was found
 
 **Routes and their templates:**
 
-Errorhandler(404) --> '404.html'
+Errorhandler(404) --> '404.html'\n
 Errorhandler(500) --> '500.html'
 
 '/login' --> 'login.html'
