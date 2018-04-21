@@ -464,9 +464,13 @@ def upload_file(mov_id):
         filename = photos.save(form.photo.data)
         file_url = photos.url(filename)
         movie = Movie.query.filter_by(id=mov_id).first()
-        post = MoviePoster(movie_id=movie.id,poster=filename)
-        db.session.add(post)
-        db.session.commit()
+        poster = MoviePoster.query.filter_by(movie_id=movie.id).first()
+        if poster:
+        	continue
+        else:
+        	post = MoviePoster(movie_id=movie.id,poster=filename)
+        	db.session.add(post)
+        	db.session.commit()
         flash('Successfully Added Photo, Clink on Movies link again to see it.')
         return redirect(url_for('movie_results'))
     else:
