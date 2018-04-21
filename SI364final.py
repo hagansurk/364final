@@ -226,7 +226,7 @@ class UpdateForm(FlaskForm):
 
 class ButtonTranslate(FlaskForm):
 	#from HW5
-	submit = SubmitField('Translate')
+	submit = SubmitField('Translate to Yodaish')
 
 class DeleteForm(FlaskForm):
 	#from HW5
